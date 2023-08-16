@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"fmt"
+	"glox/pkg/lex"
 	"os"
 	"strings"
 )
@@ -40,21 +40,27 @@ func runFile(path string) error {
 }
 
 func runPrompt() error {
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Split(lex.Tokenizer)
+	log.Info("Please enter text. Enter 'exit' to quit.")
 	for {
-		fmt.Print("> : ")
-		var input string
-		if _, e := fmt.Scanln(&input); e != nil {
-			log.Warn("Input scan error", "err", e)
+		for scanner.Scan() {
+			if scanner.Text() == "exit" {
+				break
+			}
+			log.Info(scanner.Text())
 		}
-		e := run(input)
-		if e != nil {
-			log.Warn("Error running input", "err", e, "input", input)
+		if e := scanner.Err(); e != nil {
+			reportError(0, "", e.Error())
+			continue // TODO: if running in REPL mode, mistake in source code should not kill the entire session
 		}
+		return nil
 	}
 }
 
 func run(source string) error {
 	scanner := bufio.NewScanner(strings.NewReader(source))
+	scanner.Split(lex.Tokenizer)
 	for scanner.Scan() {
 		log.Info(scanner.Text())
 	}
@@ -67,5 +73,5 @@ func run(source string) error {
 
 // TODO: this should be some kind of sentinel error / ErrorReporter interface
 func reportError(line uint, where string, message string) {
-	log.Warn("Execution was not a gooder", "line", line, "location", where, "message", message)
+	log.Warn("Execution failed", "line", line, "location", where, "message", message)
 }
