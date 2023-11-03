@@ -36,7 +36,7 @@ type Scanner struct {
 }
 
 // New creates and returns a new Scanner.
-func New(source string) *Scanner {
+func NewScanner(source string) *Scanner {
 	return &Scanner{
 		source: source,
 		line:   1,
