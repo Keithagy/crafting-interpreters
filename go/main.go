@@ -2,76 +2,56 @@ package main
 
 import (
 	"bufio"
-	"glox/pkg/lex"
+	"fmt"
+	"io"
+	"log/slog"
 	"os"
-	"strings"
 )
-import log "github.com/inconshreveable/log15"
 
 func main() {
-	argsWithoutProg := os.Args[1:]
-	log.Info("Starting glox", "args", argsWithoutProg)
-	if len(argsWithoutProg) > 1 {
-		log.Info("Too many arguments")
-		os.Exit(64)
-	} else if len(argsWithoutProg) == 1 {
-		log.Info("Running File", "path", argsWithoutProg[0])
-		e := runFile(argsWithoutProg[0])
-		if e != nil {
-			os.Exit(65)
-		}
-		os.Exit(0)
+	args := os.Args[1:]
+	slog.Info("Starting glox", "args", args)
+	if len(args) > 1 {
+		slog.Info("Too many arguments", "Usage", "glox [script]")
+	} else if len(args) == 1 {
+		runFile(args[0])
 	} else {
-		log.Info("Running in REPL mode")
-		e := runPrompt()
-		if e != nil {
-			os.Exit(65)
-		}
-		os.Exit(0)
+		runPrompt()
 	}
 }
 
 func runFile(path string) error {
-	bytes, err := os.ReadFile(path)
+	dat, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	return run(string(bytes))
+	return run(string(dat))
 }
 
-func runPrompt() error {
-	scanner := bufio.NewScanner(os.Stdin)
-	scanner.Split(lex.Tokenizer)
-	log.Info("Please enter text. Enter 'exit' to quit.")
+func runPrompt() {
+	reader := bufio.NewReader(os.Stdin)
+
 	for {
-		for scanner.Scan() {
-			if scanner.Text() == "exit" {
+		fmt.Print("> ")
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			if err == io.EOF { // usually sent via ctrl-D
 				break
 			}
-			log.Info(scanner.Text())
+			slog.Error("Error reading line", "err", err)
+			continue
 		}
-		if e := scanner.Err(); e != nil {
-			reportError(0, "", e.Error())
-			continue // TODO: if running in REPL mode, mistake in source code should not kill the entire session
-		}
-		return nil
+		run(line)
 	}
 }
 
 func run(source string) error {
-	scanner := bufio.NewScanner(strings.NewReader(source))
-	scanner.Split(lex.Tokenizer)
-	for scanner.Scan() {
-		log.Info(scanner.Text())
-	}
-	if e := scanner.Err(); e != nil {
-		reportError(0, "", e.Error())
-		return e
+	scanner := NewScanner(source)
+	tokens := scanner.ScanTokenks()
+
+	// For now, just print the tokens.
+	for _, token := range tokens {
+		fmt.Println(token)
 	}
 	return nil
-}
-
-// TODO: this should be some kind of sentinel error / ErrorReporter interface
-func reportError(line uint, where string, message string) {
-	log.Warn("Execution failed", "line", line, "location", where, "message", message)
 }
